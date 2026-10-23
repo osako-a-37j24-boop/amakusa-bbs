@@ -668,3 +668,96 @@ function save() {
 }
 
 document.addEventListener("DOMContentLoaded", init);
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
+import { 
+  getFirestore, 
+  collection, 
+  addDoc, 
+  query, 
+  orderBy, 
+  onSnapshot, 
+  serverTimestamp 
+} from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
+
+// メモ画像から抽出した設定情報
+const firebaseConfig = {
+  apiKey: "AIzaSyC_BJEdpECSK9Lq-1CqZrDBfLDZOtDkVFY",
+  authDomain: "amakusa-bbs.firebaseapp.com",
+  projectId: "amakusa-bbs",
+  storageBucket: "amakusa-bbs.firebasestorage.app",
+  messagingSenderId: "447439064622",
+  appId: "1:447439064622:web:52d3676f4b10ce753999bf"
+};
+
+// Firebase初期化
+const app = initializeApp(firebaseConfig);
+const db = getFirestore(app);
+const postsCollection = collection(db, "posts");
+
+// DOM要素取得
+const postForm = document.getElementById("post-form");
+const nameInput = document.getElementById("name-input");
+const contentInput = document.getElementById("content-input");
+const postsContainer = document.getElementById("posts-container");
+
+// リアルタイムで投稿データを自動取得・表示
+const q = query(postsCollection, orderBy("createdAt", "desc"));
+onSnapshot(q, (snapshot) => {
+  postsContainer.innerHTML = "";
+
+  if (snapshot.empty) {
+    postsContainer.innerHTML = '<p class="empty-msg">まだ投稿がありません。最初のメッセージを投稿してみましょう！</p>';
+    return;
+  }
+
+  snapshot.forEach((doc) => {
+    const data = doc.data();
+    const dateStr = data.createdAt 
+      ? new Date(data.createdAt.toDate()).toLocaleString("ja-JP") 
+      : "送信中...";
+
+    const postElement = document.createElement("div");
+    postElement.className = "post-card";
+    postElement.innerHTML = `
+      <div class="post-header">
+        <span class="post-name">${escapeHTML(data.name || "名無し")}</span>
+        <span class="post-date">${dateStr}</span>
+      </div>
+      <div class="post-content">${escapeHTML(data.content || "")}</div>
+    `;
+    postsContainer.appendChild(postElement);
+  });
+});
+
+// 投稿送信処理
+postForm.addEventListener("submit", async (e) => {
+  e.preventDefault();
+
+  const name = nameInput.value.trim() || "名無し";
+  const content = contentInput.value.trim();
+
+  if (!content) return;
+
+  try {
+    await addDoc(postsCollection, {
+      name: name,
+      content: content,
+      createdAt: serverTimestamp()
+    });
+
+    contentInput.value = "";
+  } catch (error) {
+    console.error("投稿エラー:", error);
+    alert("投稿の送信に失敗しました。時間をおいて再度お試しください。");
+  }
+});
+
+// XSS対策（エスケープ処理）
+function escapeHTML(str) {
+  return str
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#039;");
+}
