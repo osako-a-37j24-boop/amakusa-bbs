@@ -1,0 +1,274 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>天草工業掲示板 v6.8</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+    <link rel="stylesheet" href="index.css">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+<body>
+
+    <div class="ad-banner">
+        <div class="ad-content">【天工ニュース】本日の部活動は熱中症警戒アラートのため、こまめな水分補給を徹底してください。</div>
+    </div>
+
+    <nav class="navbar" id="mainNavbar">
+        <div class="nav-brand" onclick="goHome()">AMAKUSA TECH BBS <small>v6.8</small></div>
+        <button class="menu-toggle-btn" onclick="toggleMenu()"><i class="fa-solid fa-bars"></i></button>
+    </nav>
+
+    <div id="sideMenu" class="side-menu">
+        <div class="menu-header">
+            <h3>メニュー</h3>
+            <button class="close-menu-btn" onclick="toggleMenu()">×</button>
+        </div>
+        <div class="menu-auth-status">
+            <span id="authStatus"><i class="fa-solid fa-user"></i> 一般ユーザー</span>
+            <div id="reportAlert" class="hidden" onclick="switchToAdminDashboard()">
+                <i class="fa-solid fa-triangle-exclamation"></i> 未処理の通報があります！
+            </div>
+        </div>
+        <ul class="menu-list">
+            <li><a href="https://sh.higo.ed.jp/amakusaths/" target="_blank" rel="noopener noreferrer" onclick="toggleMenu()"><i class="fa-solid fa-school"></i> 天草工業公式HP</a></li>
+            <li><button onclick="openModal('newsModal')"><i class="fa-solid fa-bullhorn"></i> お知らせ</button></li>
+            <li><button onclick="openModal('guidelineModal')"><i class="fa-solid fa-book-open"></i> ガイドライン</button></li>
+            <li><button onclick="toggleDarkMode()"><i class="fa-solid fa-moon"></i> <span id="darkText">ダークモード切替</span></button></li>
+            <div id="adminMenuArea" class="hidden">
+                <li class="menu-divider"></li>
+                <li><button onclick="switchToAdminDashboard()" style="color: var(--primary);"><i class="fa-solid fa-gauge"></i> 管理ダッシュボードを開く</button></li>
+                <li><button onclick="logoutAdmin()" style="color: var(--danger);"><i class="fa-solid fa-right-from-bracket"></i> 管理者ログアウト</button></li>
+            </div>
+            <li class="menu-divider"></li>
+            <li><button class="btn-menu-admin" id="adminBtn" onclick="toggleAdmin()">管理者ログイン</button></li>
+        </ul>
+    </div>
+    <div id="menuOverlay" class="menu-overlay" onclick="toggleMenu()"></div>
+
+    <div class="container">
+        <div id="searchToolbar" class="search-toolbar hidden">
+            <div class="search-box">
+                <i class="fa-solid fa-magnifying-glass"></i>
+                <input type="text" id="searchInput" placeholder="投稿を検索... (『#admin』で管理者画面)" oninput="handleSearchInput()">
+            </div>
+            <div class="filter-box">
+                <select id="filterTag" onchange="renderPosts()">
+                    <option value="">すべてのタグ</option>
+                    <option value="【総合】">【総合】</option>
+                    <option value="【連絡】">【連絡】</option>
+                    <option value="【質問】">【質問】</option>
+                    <option value="【試合結果】">【試合結果】</option>
+                </select>
+                <label style="margin-left: 10px; user-select: none;">
+                    <input type="checkbox" id="filterImgCheck" onchange="renderPosts()"> <i class="fa-solid fa-image"></i> 写真あり
+                </label>
+            </div>
+        </div>
+
+        <!-- カテゴリー選択（運動部・文化部） -->
+        <div id="categorySelectionPage">
+            <div class="category-grid">
+                <div class="category-card" onclick="selectCategory('sports')">
+                    <i class="fa-solid fa-person-running"></i>
+                    <h3>運動部</h3>
+                </div>
+                <div class="category-card" onclick="selectCategory('culture')">
+                    <i class="fa-solid fa-palette"></i>
+                    <h3>文化部</h3>
+                </div>
+            </div>
+        </div>
+
+        <!-- 部活一覧画面 -->
+        <div id="clubSelectionPage" class="hidden">
+            <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 20px;">
+                <button class="btn btn-primary" onclick="backToCategory()"><i class="fa-solid fa-arrow-left"></i> 戻る</button>
+                <h2 id="clubCategoryTitle" style="font-size: 1.5rem; margin: 0;">部活動を選択してください</h2>
+                <div style="width: 70px;"></div>
+            </div>
+            <div class="club-grid" id="clubGrid"></div>
+        </div>
+
+        <!-- BBSメイン画面 -->
+        <div id="bbsPage" class="hidden">
+            <div class="bbs-header">
+                <button class="btn btn-primary" onclick="backFromBBS()"><i class="fa-solid fa-house"></i> 戻る</button>
+                <h2 id="clubTitle">部活名</h2>
+                <div style="display: flex; align-items: center; gap: 10px;">
+                    <span id="lockStatus" style="font-size:0.85rem; color:#64748b;"></span>
+                    <button class="btn btn-logout hidden" id="logoutBtn" onclick="logoutInternal()">認証ログアウト</button>
+                </div>
+            </div>
+
+            <div class="tab-bar">
+                <div class="tab active" id="tab-public" onclick="switchTab('public')"><i class="fa-solid fa-globe"></i> 公開掲示板</div>
+                <div class="tab" id="tab-internal" onclick="switchTab('internal')"><i class="fa-solid fa-lock"></i> 部内連絡</div>
+            </div>
+
+            <div class="sub-navbar hidden" id="internalSubNavbar">
+                <button class="sub-nav-btn active" id="subBtn-timeline" onclick="switchSubSection('timeline')"><i class="fa-solid fa-comments"></i> タイムライン</button>
+                <button class="sub-nav-btn" id="subBtn-calendar" onclick="switchSubSection('calendar')"><i class="fa-solid fa-calendar-days"></i> スケジュール</button>
+                <button class="sub-nav-btn" id="subBtn-poll" onclick="switchSubSection('poll')"><i class="fa-solid fa-square-poll-horizontal"></i> アンケート</button>
+            </div>
+
+            <div class="bbs-contents-wrapper">
+                <div id="sect-timeline" class="sub-section split-layout">
+                    <div class="left-photo-panel">
+                        <div class="card-box" style="height: 100%;">
+                            <h4><i class="fa-solid fa-images"></i> 写真ギャラリー</h4>
+                            <div class="photo-upload-box" style="margin-bottom: 15px;">
+                                <label class="photo-dropzone" id="dropzoneLabel">
+                                    <i class="fa-solid fa-cloud-arrow-up"></i>
+                                    <span>写真を添付する</span>
+                                    <input type="file" id="imageInput" accept="image/*" hidden onchange="handleImagePreview()">
+                                </label>
+                                <div id="imagePreviewContainer" class="hidden">
+                                    <div style="position: relative; display: inline-block;">
+                                        <img id="imagePreview" src="" style="max-width: 100%; max-height: 150px; border-radius: 6px; border: 1px solid var(--border);">
+                                        <button class="btn-remove-circle" onclick="removeImage()">×</button>
+                                    </div>
+                                    <p style="font-size: 0.75rem; color: #64748b; margin-top: 5px;">※右側の送信ボタンでテキストと一緒に投稿されます</p>
+                                </div>
+                            </div>
+                            <div id="galleryWindow" class="gallery-grid"></div>
+                        </div>
+                    </div>
+
+                    <div class="right-bbs-panel">
+                        <div class="post-list" id="postWindow"></div>
+                        <div class="post-form-mini">
+                            <div class="form-row">
+                                <input type="text" id="userName" placeholder="名前" value="名無しさん" style="flex: 1;">
+                                <select id="postTag" style="width: auto;">
+                                    <option value="【総合】">【総合】</option>
+                                    <option value="【連絡】">【連絡】</option>
+                                    <option value="【質問】">【質問】</option>
+                                    <option value="【試合結果】">【試合結果】</option>
+                                </select>
+                            </div>
+                            <div class="form-row" style="margin-top: 8px; position: relative;">
+                                <textarea id="userMsg" rows="2" placeholder="メッセージを入力...（音声入力も可能）"></textarea>
+                                <div class="form-action-btns">
+                                    <button class="btn btn-mic" id="micBtn" onclick="toggleVoiceInput()" title="音声入力"><i class="fa-solid fa-microphone"></i></button>
+                                    <button class="btn btn-send" onclick="postMessage()" title="送信"><i class="fa-solid fa-paper-plane"></i></button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div id="sect-calendar" class="sub-section hidden">
+                    <div class="card-box">
+                        <h3><i class="fa-solid fa-calendar-days"></i> 部活専用スケジュール</h3>
+                        <div id="scheduleList" class="schedule-large-list" style="margin: 15px 0;"></div>
+                        <div class="schedule-form">
+                            <input type="date" id="schedDate">
+                            <input type="text" id="schedText" placeholder="予定の詳細内容を入力してください">
+                            <button class="btn btn-primary" onclick="addSchedule()">予定を追加</button>
+                        </div>
+                    </div>
+                </div>
+
+                <div id="sect-poll" class="sub-section hidden">
+                    <div class="card-box">
+                        <h3><i class="fa-solid fa-square-poll-horizontal"></i> 部内簡易アンケート投票</h3>
+                        <div id="activePollArea" style="margin: 20px 0;"></div>
+                        <button class="btn btn-admin" style="width:100%;" onclick="openModal('createPollModal')">新規アンケートを作成する</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 管理者ダッシュボード -->
+        <div id="adminDashboardPage" class="hidden">
+            <div class="admin-dash-header">
+                <h2><i class="fa-solid fa-user-shield"></i> 管理者ダッシュボード</h2>
+                <div style="display:flex; gap:10px;">
+                    <button class="btn btn-admin" onclick="exitAdminDashboard()">一般画面に戻る</button>
+                    <button class="btn btn-del" onclick="logoutAdmin()"><i class="fa-solid fa-right-from-bracket"></i> ログアウト</button>
+                </div>
+            </div>
+            <div class="admin-stats-grid">
+                <div class="stat-card card-danger"><div class="stat-num" id="stat-reports">0</div><div class="stat-label">未処理の通報</div></div>
+                <div class="stat-card"><div class="stat-num" id="stat-posts">0</div><div class="stat-label">総投稿数</div></div>
+                <div class="stat-card"><div class="stat-num" id="stat-clubs">0</div><div class="stat-label">管理部活数</div></div>
+            </div>
+            <div class="admin-sect" style="margin-bottom: 25px;">
+                <h3>アクティビティ統計</h3>
+                <div style="position: relative; height:180px; width:100%;"><canvas id="activityChart"></canvas></div>
+            </div>
+            <div class="admin-sect" style="margin-bottom: 25px;">
+                <h3>リアルタイム通報処理</h3>
+                <div id="dashReportList" class="dash-report-container"></div>
+            </div>
+            <div class="admin-sect">
+                <h3>部活統括（パスワード変更・一斉潜入）</h3>
+                <div class="admin-club-control-grid" id="adminClubControlGrid"></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- モーダル各種 -->
+    <div id="newsModal" class="modal hidden">
+        <div class="modal-content">
+            <h3>お知らせ</h3>
+            <p><strong>アップデート情報 v6.8</strong><br>・音声メッセージ機能（🎙️）が追加されました！<br>・ギャラリーの写真を拡大した際、保存できるようになりました。</p>
+            <button class="btn btn-primary" onclick="closeModal('newsModal')" style="margin-top:15px; width:100%;">閉じる</button>
+        </div>
+    </div>
+
+    <div id="guidelineModal" class="modal hidden">
+        <div class="modal-content">
+            <h3>利用規約</h3>
+            <p>ネットマナーを守って利用してください。</p>
+            <button class="btn btn-primary" onclick="closeModal('guidelineModal')" style="margin-top:15px; width:100%;">同意する</button>
+        </div>
+    </div>
+
+    <div id="createPollModal" class="modal hidden">
+        <div class="modal-content">
+            <h3>アンケートを作成</h3>
+            <input type="text" id="pollQuestion" placeholder="例：練習試合の移動手段は？" style="margin-bottom:10px;">
+            <input type="text" id="pollOpt1" placeholder="選択肢 1" style="margin-bottom:5px;">
+            <input type="text" id="pollOpt2" placeholder="選択肢 2" style="margin-bottom:10px;">
+            <label style="font-size:0.8rem; color:#64748b;">投票の締め切り日時（任意）:</label>
+            <input type="datetime-local" id="pollDeadline" style="margin-bottom:10px; margin-top:2px;">
+            <div style="display:flex; gap:10px; margin-top:15px;">
+                <button class="btn btn-primary" onclick="createPoll()" style="flex:1;">作成</button>
+                <button class="btn btn-admin" onclick="closeModal('createPollModal')" style="flex:1;">キャンセル</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="replyModal" class="modal hidden">
+        <div class="modal-content">
+            <h3><i class="fa-solid fa-reply"></i> コメントへ返信</h3>
+            <div id="replyTargetPreview" style="font-size:0.85rem; padding:8px; background:var(--bg); border-left:3px solid var(--primary); margin-bottom:12px;"></div>
+            <input type="hidden" id="replyTargetPostId">
+            <input type="text" id="replyName" placeholder="名前" value="名無しさん" style="margin-bottom:8px;">
+            <textarea id="replyMsg" rows="3" placeholder="返信内容を入力..."></textarea>
+            <div style="display:flex; gap:10px; margin-top:15px;">
+                <button class="btn btn-primary" onclick="submitReply()" style="flex:1;">返信する</button>
+                <button class="btn btn-admin" onclick="closeModal('replyModal')" style="flex:1;">キャンセル</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 画像拡大表示用ライトボックス -->
+    <div id="imageLightbox" class="lightbox hidden" onclick="closeLightbox()">
+        <span class="lightbox-close">&times;</span>
+        <div class="lightbox-content-box" onclick="event.stopPropagation()">
+            <img class="lightbox-img" id="lightboxTargetImg" src="">
+            <div class="lightbox-actions">
+                <a id="lightboxDownloadBtn" href="#" download="amakusa_bbs_photo.png" class="btn btn-download">
+                    <i class="fa-solid fa-cloud-arrow-down"></i> 画像を保存する
+                </a>
+            </div>
+        </div>
+    </div>
+
+    <!-- script.js の読み込み部分を以下のように書き換えます -->
+<script type="module" src="script.js"></script>
+</body>
+</html>
